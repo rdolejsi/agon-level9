@@ -6,3 +6,11 @@ Release/
 *.chm
 *.user
 
+.idea
+*~
+
+Agon/bitmap.c
+Agon/level9.c
+Agon/level9.h
+Agon/obj
+Agon/dist

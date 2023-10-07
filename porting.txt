@@ -5,9 +5,9 @@ Version 5.2
 This guide is by David Kinder.
 
 
-Level9 has already been compiled on Windows, MS-DOS, Apple Mac, Amiga, Acorn
-and Unix systems, so it should be quite easy to get it working on any other
-modern computer.
+Level9 has already been compiled on Windows, MS-DOS, Apple Mac, Amiga, Acorn,
+Agon Light and Unix systems, so it should be quite easy to get it working on
+any other modern computer.
 
 The first thing that must be done is to check the typedefs in level9.h.
 The typedefs must have the following properties:

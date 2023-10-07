@@ -22,10 +22,17 @@
 *
 \***********************************************************************/
 
+#ifdef HAVE_PLATFORM_H
+#include "platform.h"
+#endif
+
+#ifndef L9TYPEDEF
+#define L9TYPEDEF
 typedef unsigned char L9BYTE;
 typedef unsigned short L9UINT16;
 typedef unsigned long L9UINT32;
 typedef int L9BOOL;
+#endif
 
 #ifndef FALSE
 #define FALSE 0
