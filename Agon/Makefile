@@ -19,7 +19,7 @@ INIT_LOC = 040000
 # Compilation flags
 # Please note: -Oz does not work on Agon/CEdev at the moment:
 # LLVM fails at legalizing instructions within CheckCallDriverV4 method
-CFLAGS = -Wall -Wextra -I.. -DBITMAP_DECODER -DHAVE_PLATFORM_H -D__AGON__ -v #-Oz #-DL9DEBUG
+CFLAGS = -Wall -Wextra -I.. -DBITMAP_DECODER -DHAVE_PLATFORM_H -D__AGON__ -v # -DGFX_ENABLED -DGFX_DEBUG #-Oz #-DL9DEBUG
 
 LIBS = -ltermcap
 

@@ -27,6 +27,15 @@
 #include <string.h>
 #include "level9.h"
 
+#define GFX_FILE_EXT_DOS_HIRES ".hrc"
+#define GFX_FILE_EXT_DOS_CGA ".cga"
+#define GFX_FILE_DEFAULT "picture.dat"
+
+// Graphics is not enabled at the moment as it is not supported yet.
+// Not only the graphical methods will need to be implemented, but also getchar needs to be redesigned
+// to not wait for next character, but just check the key pressed (to allow graphics ticking).
+#undef GFX_ENABLED
+
 #define TEXTBUFFER_SIZE 10240
 char text_buffer[TEXTBUFFER_SIZE + 1];
 int text_buffer_pointer = 0;
@@ -64,6 +73,9 @@ void os_printchar(char c) {
 
 L9BOOL os_input(char *ibuff, int size) {
     os_flush();
+#ifdef GFX_ENABLED
+    RunGraphics();
+#endif
     fgets(ibuff, size, stdin);
     char *nl = strchr(ibuff, '\n');
     if (nl) {
@@ -74,6 +86,9 @@ L9BOOL os_input(char *ibuff, int size) {
 
 char os_readchar(int millis) {
     os_flush();
+#ifdef GFX_ENABLED
+    RunGraphics();
+#endif
     if (millis == 0) {
         return 0;
     }
@@ -208,8 +223,8 @@ FILE *os_open_script_file(void) {
     return os_prompt_and_open_file("Script file: ", "rt");
 }
 
-L9BOOL os_find_file(char *new_name) {
-    FILE *f = fopen(new_name, "rb");
+L9BOOL os_find_file(char *file_name) {
+    FILE *f = fopen(file_name, "rb");
     if (f != NULL) {
         fclose(f);
         return TRUE;
@@ -218,21 +233,94 @@ L9BOOL os_find_file(char *new_name) {
 }
 
 void os_graphics(int mode) {
+#ifdef GFX_DEBUG
+    printf("os_graphics(mode=%i);\n", mode);
+#endif
 }
 
 void os_cleargraphics(void) {
+#ifdef GFX_DEBUG
+    printf("os_cleargraphics();\n");
+#endif
 }
 
-void os_setcolour(int colour, int index) {
+void os_setcolour(int color, int index) {
+#ifdef GFX_DEBUG
+    printf("os_setcolour(color=%i,index=%i);\n", color, index);
+#endif
 }
 
-void os_drawline(int x1, int y1, int x2, int y2, int colour1, int colour2) {
+void os_drawline(int x1, int y1, int x2, int y2, int color1, int color2) {
+#ifdef GFX_DEBUG
+    printf("os_drawline(x1=%i,y1=%i,x2=%i,y2=%i,color1=%i,color2=%i);\n", x1, y1, x2, y2, color1, color2);
+#endif
 }
 
-void os_fill(int x, int y, int colour1, int colour2) {
+void os_fill(int x, int y, int color1, int color2) {
+#ifdef GFX_DEBUG
+    printf("os_fill(x=%i,y=%i,color1=%i,color2=%i);\n", x, y, color1, color2);
+#endif
 }
 
 void os_show_bitmap(int pic, int x, int y) {
+#ifdef GFX_DEBUG
+    printf("os_show_bitmap(pic=%i,x=%i,y=%i);\n", pic, x, y);
+#endif
+}
+
+char *os_strip_file_ext(char *file) {
+    char *ext_pos = strrchr(file, '.');
+    return ext_pos != NULL ? strndup(file, strlen(file) - strlen(ext_pos)) : file;
+}
+
+/**
+ * Performs a secondary graphics file lookup.
+ *
+ * We currently support DOS-based games coming with *.cga or *.hrc graphics,
+ * where Hi-Res graphics takes precedence unless number of screen colors or resolution is below 512.
+ * The graphics file can be forced from command line, though - irrespective of the screen limitations.
+ *
+ * @return either gfx file forced from command line or detected file based on screen preference
+ */
+void os_lookup_gfx_file(char *dat_file, char *gfx_file_forced, char *gfx_file) {
+    if (gfx_file_forced != NULL) {
+        strcpy(gfx_file, gfx_file_forced);
+        return;
+    }
+    printf("No gfx file specified, detecting..\n");
+    char *file_basename = os_strip_file_ext(dat_file);
+
+    char dos_hires[256];
+    sprintf(dos_hires, "%s%s", file_basename, GFX_FILE_EXT_DOS_HIRES);
+    L9BOOL dos_hires_exists = os_find_file(dos_hires);
+
+    char dos_cga[256];
+    sprintf(dos_cga, "%s%s", file_basename, GFX_FILE_EXT_DOS_CGA);
+    L9BOOL dos_cga_exists = os_find_file(dos_cga);
+
+    L9BOOL default_exists = os_find_file(GFX_FILE_DEFAULT);
+
+    // no gfx file detected
+    gfx_file[0] = '\0'; // empty file
+    if (!dos_cga_exists && !dos_hires_exists && !default_exists) {
+        printf("No gfx file exists.\n");
+        return;
+    }
+    // default file detected
+    if (!dos_cga_exists && !dos_hires_exists) {
+        printf("Using default gfx file %s (no other variants available).\n", GFX_FILE_DEFAULT);
+        strcpy(gfx_file, GFX_FILE_DEFAULT);
+        return;
+    }
+    // hires for good screen conditions or if cga does not exist
+    if (dos_hires_exists && ((screen_width >= 512 && screen_colors >= 16) || !dos_cga_exists)) {
+        printf("Using dos-hi-res gfx file %s.\n", GFX_FILE_DEFAULT);
+        strcpy(gfx_file, dos_hires);
+        return;
+    }
+    // CGA variant for everything else (320 width screen, 4 colors, ..)
+    printf("Using dos-cga gfx file %s.\n", dos_cga);
+    strcpy(gfx_file, dos_cga);
 }
 
 int main(int argc, char **argv) {
@@ -241,12 +329,19 @@ int main(int argc, char **argv) {
             "Level 9 Interpreter, mode %ix%i (%ix%i chars), %i colors\n",
             screen_width, screen_height, screen_columns, screen_rows, screen_colors
     );
-    if (argc != 2) {
-        printf("Use: %s <game_file>\n", argv[0]);
+    if (argc != 2 && argc != 3) {
+        printf("Use: %s <game_file> [gfx_file]\n", argv[0]);
         return 0;
     }
-    if (!LoadGame(argv[1], NULL)) {
-        printf("Error: Unable to open game file\n");
+    char gfx_file[256] = "";
+    os_lookup_gfx_file(argv[1], argc < 3 ? NULL : argv[2], gfx_file);
+    if (strlen(gfx_file) == 0) {
+        printf("Loading game file %s\n", argv[1]);
+    } else {
+        printf("Loading game file %s + gfx file %s\n", argv[1], gfx_file);
+    }
+    if (!LoadGame(argv[1], gfx_file)) {
+        printf("Error: Unable to open game\n");
         return 0;
     }
     while (RunGame());
