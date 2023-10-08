@@ -36,6 +36,11 @@
 // to not wait for next character, but just check the key pressed (to allow graphics ticking).
 #undef GFX_ENABLED
 
+// When graphics is enabled, realtime keystrokes are grabbed and typical keyboard behavior is emulated.
+// This includes initial and subsequent delays on key press to avoid too fast typing.
+#define KEY_PRESS_DELAY_TICKS_INITIAL 7500
+#define KEY_PRESS_DELAY_TICKS_SUBSEQUENT 3500
+
 #define TEXTBUFFER_SIZE 10240
 char text_buffer[TEXTBUFFER_SIZE + 1];
 int text_buffer_pointer = 0;
@@ -71,12 +76,120 @@ void os_printchar(char c) {
     }
 }
 
+char os_key_pressed() {
+    static uint8_t prev_down = 0;
+    static uint16_t down_delay = 0;
+
+    // check if anything is pressed, clear previous pressed counter
+    uint8_t down = getsysvar_vkeydown();
+    if (!down) {
+        prev_down = down;
+        return 0;
+    }
+
+    // get realtime key and correct it for stdio compatibility
+    uint8_t key = getsysvar_keyascii();
+    if (key == '\r') {
+        key = '\n';
+    }
+
+    // key just pressed, set delay to first delay, return the keystroke
+    if (!prev_down && down) {
+        prev_down = down;
+        down_delay = KEY_PRESS_DELAY_TICKS_INITIAL;
+        return key;
+    }
+
+    // we are waiting until next key repeat
+    if (--down_delay > 0) {
+        return 0;
+    }
+
+    // set follow-up key delay, return the key
+    down_delay = KEY_PRESS_DELAY_TICKS_SUBSEQUENT;
+    return key;
+}
+
+char os_key_next() {
+    static uint8_t prev_down = 0;
+    static uint16_t down_delay = 0;
+
+    // check if anything is pressed, clear previous pressed counter
+    uint8_t down = getsysvar_vkeydown();
+    if (!down) {
+        prev_down = down;
+        return 0;
+    }
+
+    // get realtime key and correct it for stdio compatibility
+    uint8_t key = getsysvar_keyascii();
+    if (key == '\r') {
+        key = '\n';
+    }
+
+    // key just pressed, set delay to first delay, return the keystroke
+    if (!prev_down && down) {
+        prev_down = down;
+        down_delay = KEY_PRESS_DELAY_TICKS_INITIAL;
+        return key;
+    }
+
+    // we are waiting until next key repeat
+    if (--down_delay > 0) {
+        return 0;
+    }
+
+    // set follow-up key delay, return the key
+    down_delay = KEY_PRESS_DELAY_TICKS_SUBSEQUENT;
+    return key;
+}
+
+/**
+ * Corrects delete character (shifts remaining content left by one, removing previous character + delete).
+ */
+void os_correct_input_deletes(char *ibuff, int size) {
+    int src_pos = 0;
+    int dst_pos = 0;
+    char ch;
+    do {
+        ch = ibuff[src_pos++];
+        if (ch != 127) {
+            ibuff[dst_pos++] = ch;
+        } else {
+            if (dst_pos > 0) {
+                dst_pos--;
+            }
+        }
+    } while (ch != 0 && src_pos < size);
+    // the terminating character should've been written, but let's finalize the string anyway
+    ibuff[dst_pos] = 0;
+}
+
 L9BOOL os_input(char *ibuff, int size) {
     os_flush();
 #ifdef GFX_ENABLED
-    RunGraphics();
-#endif
+    char ch;
+    int ibuff_pos = 0;
+    do {
+        ch = os_key_pressed();
+        if (ch != 0) {
+            if (ch == 127) { // delete
+                if (ibuff_pos > 0) {
+                    ibuff[ibuff_pos--] = 0;
+                    // print delete (remove character from console)
+                    printf("%c", ch);
+                }
+            } else {
+                ibuff[ibuff_pos++] = ch;
+                printf("%c", ch);
+            }
+        }
+        RunGraphics();
+    } while (ch != '\n' && ibuff_pos < size);
+#else
     fgets(ibuff, size, stdin);
+    os_correct_input_deletes(ibuff, size);
+#endif
     char *nl = strchr(ibuff, '\n');
     if (nl) {
         *nl = 0;
@@ -112,12 +225,21 @@ char os_readchar(int millis) {
     }
     count = 0;
 
-    char c = getc(stdin); /* will require enter key as well */
+    char c;
+#ifdef GFX_ENABLED
+    /* in realtime mode we just wait for next key, nothing to clear from any stdin buffer */
+    do {
+        RunGraphics();
+        c = os_key_pressed();
+    } while (c == 0);
+#else
+    c = getc(stdin); /* will require enter key as well */
     if (c != '\n') {
         while (getc(stdin) != '\n') {
             /* remove input from buffer until enter key */
         }
     }
+#endif
     return c;
 }
 
