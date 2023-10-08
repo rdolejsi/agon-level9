@@ -8,6 +8,9 @@ Release/
 
 .idea
 *~
+*.diff
+*.orig
+*.rej
 
 Agon/bitmap.c
 Agon/level9.c

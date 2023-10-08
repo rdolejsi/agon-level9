@@ -18,13 +18,13 @@ The typedefs must have the following properties:
 	L9BOOL		quantity capable of holding the values
 			TRUE (1) and FALSE (0)
 
-Also the define MAX_PATH (the maximum length of the full pathname of a file)
+Also, the define MAX_PATH (the maximum length of the full pathname of a file)
 must be set, e.g.
 
 	#define MAX_PATH 256
 
 If graphics are not supported defining NO_SCAN_GRAPHICS will stop the
-intialization code from looking for graphics data, which may take a noticeable
+initialization code from looking for graphics data, which may take a noticeable
 length of time on slower computers.
 
 
@@ -88,7 +88,7 @@ L9BOOL os_save_file(L9BYTE* Ptr, int Bytes)
 	os_save_file() should prompt the user in some way (with either
 	text or a file requester) for a filename to save the area of
 	memory of size Bytes pointed to by Ptr. TRUE or FALSE should be
-	returned depending on whether or not the operation was successful.
+	returned depending on whether the operation was successful.
 
 
 L9BOOL os_load_file(L9BYTE* Ptr, int* Bytes, int Max)
@@ -203,7 +203,7 @@ void os_setcolour(int colour, int index)
 void os_drawline(int x1, int y1, int x2, int y2, int colour1, int colour2)
 
 	Draw a line on the graphics bitmap between (x1,y1) and (x2,y2).
-	Note that either point may lie outside of the bitmap, and that it
+	Note that either point may lie outside the bitmap, and that it
 	is the responsibility of the routine to clip to the appropriate
 	co-ordinates.
 
@@ -235,7 +235,7 @@ void os_show_bitmap(int pic, int x, int y)
 
 L9BOOL os_find_file(char* NewName)
 
-	Return whether the given file exists or not. On case sensitive
+	Return whether the given file exists or not. On case-sensitive
 	file systems, the interpreter should check whether the file
 	exists as all uppercase and all lowercase. If it does, the
 	routine should return TRUE, with the string pointed to by
